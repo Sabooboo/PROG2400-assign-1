@@ -4,18 +4,26 @@
 // Path: src/list/mod.rs
 use std::{fmt, iter::Iterator};
 #[derive(Debug)]
-struct Node<T> {
-    elem: T,
-    next: Option<Box<Node<T>>>,
+pub struct Node<T> {
+    pub elem: T,
+    pub next: Option<Box<Node<T>>>,
 }
 
 #[derive(Debug)]
 pub struct List<T> {
-    head: Option<Box<Node<T>>>,
+    pub head: Option<Box<Node<T>>>,
 }
 
 pub fn new<T>() -> List<T> {
     List { head: None }
+}
+
+pub fn from_vec<T>(vec: Vec<T>) -> List<T> {
+    let mut list = List { head: None };
+    for elem in vec {
+        list.append(elem);
+    }
+    list
 }
 
 impl<T> Iterator for List<T> {
@@ -138,6 +146,28 @@ impl<T> List<T> {
         }
         None
     }
+    
+    pub fn insert_at(&mut self, index: usize, elem: T) {
+        if index == 0 {
+            self.prepend(elem);
+            return;
+        }
+
+        let mut current = &mut self.head;
+        let mut i = 0;
+        while let Some(node) = current {
+            if i + 1 == index {
+                let new_node = Box::new(Node {
+                    elem,
+                    next: node.next.take(),
+                });
+                node.next = Some(new_node);
+                return;
+            }
+            current = &mut node.next;
+            i += 1;
+        }
+    }
 
     pub fn pop(&mut self) -> Option<T> {
         if self.head.is_none() {
@@ -157,6 +187,56 @@ impl<T> List<T> {
 
         // remove & move the last node
         current.as_mut().unwrap().next.take().map(|node| node.elem)
+    }
+
+    pub fn shift(&mut self) -> Option<T> {
+        self.head.take().map(|node| {
+            self.head = node.next;
+            node.elem
+        })
+    }
+
+    pub fn remove_at(&mut self, index: usize) {
+        if index == 0 {
+            self.shift();
+            return;
+        }
+
+        let mut current = &mut self.head;
+        let mut i = 0;
+        while let Some(node) = current {
+            if i + 1 == index {
+                node.next = node.next.take().and_then(|node| node.next);
+                return;
+            }
+            current = &mut node.next;
+            i += 1;
+        }
+    }
+
+    pub fn front_back_split(&self) -> (List<T>, List<T>)
+    where T: Copy
+    {
+        let mut front: List<T> = new();
+        let mut back: List<T> = new();
+        let mut slow = &self.head;
+        let mut fast = &self.head;
+        while let Some(node) = fast {
+            fast = &node.next;
+            if let Some(next) = fast {
+                fast = &next.next;
+                slow = &slow.as_ref().unwrap().next;
+            }
+            if fast.is_some() {
+                front.append(slow.as_ref().unwrap().elem);
+            }
+        }
+        while let Some(node) = slow {
+            back.append(node.elem);
+            slow = &node.next;
+        }
+
+        (front, back)
     }
 
     pub fn contains (&self, elem: &T) -> bool
